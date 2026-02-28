@@ -1,0 +1,410 @@
+import React, { useState, useEffect } from 'react';
+
+// --- DATA A KONFIGURACE ---
+
+const classesConfig = [
+  { id: 'ryby', name: 'RYBY', color: 'bg-blue-400', hover: 'hover:bg-blue-500', icon: '🐟', hint: 'žábry' },
+  { id: 'obojzivelnici', name: 'OBOJŽIVELNÍCI', color: 'bg-green-500', hover: 'hover:bg-green-600', icon: '🐸', hint: 'voda i souš' },
+  { id: 'plazi', name: 'PLAZI', color: 'bg-orange-400', hover: 'hover:bg-orange-500', icon: '🦎', hint: 'šupiny' },
+  { id: 'ptaci', name: 'PTÁCI', color: 'bg-yellow-400', hover: 'hover:bg-yellow-500', icon: '🐦', hint: 'peří' },
+  { id: 'savci', name: 'SAVCI', color: 'bg-purple-400', hover: 'hover:bg-purple-500', icon: '🐻', hint: 'srst' }
+];
+
+const emojiMap = {
+  'kapr': '🐟', 'skokan': '🐸', 'ještěrka': '🦎', 'kos': '🐦', 'pes': '🐕', 'štika': '🐟',
+  'sumec': '🐟', 'ropucha': '🐸', 'slepýš': '🐍', 'čáp': '🦩', 'kočka': '🐈', 'okoun': '🐟',
+  'pstruh': '🐟', 'mlok': '🦎', 'želva': '🐢', 'sova': '🦉', 'králík': '🐇', 'lín': '🐟',
+  'čolek': '🦎', 'užovka': '🐍', 'kachna': '🦆', 'ježek': '🦔',
+  'rosnička': '🐸', 'krokodýl': '🐊', 'sýkora': '🐦', 'liška': '🦊', 'kuňka obecná': '🐸'
+};
+
+const roundsData = [
+  [ {name: 'kapr', type: 'ryby'}, {name: 'skokan', type: 'obojzivelnici'}, {name: 'ještěrka', type: 'plazi'}, {name: 'kos', type: 'ptaci'}, {name: 'pes', type: 'savci'}, {name: 'štika', type: 'ryby'} ],
+  [ {name: 'sumec', type: 'ryby'}, {name: 'ropucha', type: 'obojzivelnici'}, {name: 'slepýš', type: 'plazi'}, {name: 'čáp', type: 'ptaci'}, {name: 'kočka', type: 'savci'}, {name: 'okoun', type: 'ryby'} ],
+  [ {name: 'pstruh', type: 'ryby'}, {name: 'mlok', type: 'obojzivelnici'}, {name: 'želva', type: 'plazi'}, {name: 'sova', type: 'ptaci'}, {name: 'králík', type: 'savci'}, {name: 'lín', type: 'ryby'} ],
+  [ {name: 'štika', type: 'ryby'}, {name: 'čolek', type: 'obojzivelnici'}, {name: 'užovka', type: 'plazi'}, {name: 'kachna', type: 'ptaci'}, {name: 'ježek', type: 'savci'}, {name: 'okoun', type: 'ryby'} ],
+  [ {name: 'kapr', type: 'ryby'}, {name: 'rosnička', type: 'obojzivelnici'}, {name: 'krokodýl', type: 'plazi'}, {name: 'sýkora', type: 'ptaci'}, {name: 'liška', type: 'savci'}, {name: 'kuňka obecná', type: 'obojzivelnici'} ]
+];
+
+const praises = ["Super!", "Skvělé třídění!", "Jde ti to!"];
+
+// --- POMOCNÉ FUNKCE ---
+const shuffleArray = (array) => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
+// --- HLAVNÍ KOMPONENTA ---
+
+export default function App() {
+  const [screen, setScreen] = useState('start'); // start, game, round_eval, final_eval
+  const [currentRound, setCurrentRound] = useState(0);
+  const [cardIndex, setCardIndex] = useState(0);
+  const [shuffledRounds, setShuffledRounds] = useState(roundsData);
+  
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [feedback, setFeedback] = useState("");
+  const [isErrorShake, setIsErrorShake] = useState(false);
+  const [isSuccessAnim, setIsSuccessAnim] = useState(false);
+  
+  // Hodnocení
+  const [roundMistakes, setRoundMistakes] = useState({});
+  const [roundScore, setRoundScore] = useState(0); // První pokusy správně
+
+  const startGame = () => {
+    // Zamícháme zvířata uvnitř všech kol pokaždé, když hra začne
+    const randomlyShuffled = roundsData.map(round => shuffleArray(round));
+    setShuffledRounds(randomlyShuffled);
+    
+    setCurrentRound(0);
+    setCardIndex(0);
+    resetRoundStats();
+    setScreen('game');
+  };
+
+  const nextRound = () => {
+    if (currentRound + 1 >= roundsData.length) {
+      setScreen('final_eval');
+    } else {
+      setCurrentRound(prev => prev + 1);
+      setCardIndex(0);
+      resetRoundStats();
+      setScreen('game');
+    }
+  };
+
+  const resetRoundStats = () => {
+    setRoundMistakes({});
+    setRoundScore(0);
+    setFailedAttempts(0);
+    setFeedback("");
+  };
+
+  const handleClassify = (selectedClassId) => {
+    if (isSuccessAnim) return; // Zamezení klikání během animace
+
+    const currentCard = shuffledRounds[currentRound][cardIndex];
+    
+    if (selectedClassId === currentCard.type) {
+      // SPRÁVNĚ
+      if (failedAttempts > 0) {
+        setFeedback("Jo! Teď to sedí.");
+      } else {
+        setFeedback(praises[Math.floor(Math.random() * praises.length)]);
+        setRoundScore(prev => prev + 1);
+      }
+      
+      setIsSuccessAnim(true);
+      
+      setTimeout(() => {
+        setIsSuccessAnim(false);
+        setFeedback("");
+        setFailedAttempts(0);
+        
+        if (cardIndex + 1 < shuffledRounds[currentRound].length) {
+          setCardIndex(prev => prev + 1);
+        } else {
+          setScreen('round_eval');
+        }
+      }, 1200);
+
+    } else {
+      // CHYBA
+      setFailedAttempts(prev => prev + 1);
+      setFeedback("Zatím ne. Zkus se podívat na znak.");
+      setIsErrorShake(true);
+      
+      // Zaznamenání chyby pro hodnocení
+      setRoundMistakes(prev => ({
+        ...prev,
+        [currentCard.type]: (prev[currentCard.type] || 0) + 1
+      }));
+
+      setTimeout(() => setIsErrorShake(false), 500);
+    }
+  };
+
+  // Drag & Drop
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData("text/plain", "animalCard");
+  };
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+  const handleDrop = (e, classId) => {
+    e.preventDefault();
+    if (e.dataTransfer.getData("text/plain") === "animalCard") {
+      handleClassify(classId);
+    }
+  };
+
+  // Styly pro animace vloženy natvrdo do JSX
+  const globalStyles = `
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px) rotate(-5deg); }
+      75% { transform: translateX(10px) rotate(5deg); }
+    }
+    @keyframes dropIn {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(50px) scale(0.5); opacity: 0; }
+    }
+    @keyframes slideIn {
+      0% { transform: translateX(100px); opacity: 0; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+    .shake-anim { animation: shake 0.4s ease-in-out; }
+    .drop-anim { animation: dropIn 0.8s forwards; }
+    .slide-anim { animation: slideIn 0.5s ease-out; }
+    .conveyor-belt {
+      background: repeating-linear-gradient(90deg, #4b5563, #4b5563 20px, #374151 20px, #374151 40px);
+      border-bottom: 8px solid #1f2937;
+    }
+  `;
+
+  // --- RENDEROVÁNÍ OBRAZOVEK ---
+
+  if (screen === 'start') {
+    return (
+      <div className="min-h-screen bg-sky-100 flex flex-col items-center justify-center p-4 font-sans text-gray-800">
+        <style>{globalStyles}</style>
+        <div className="max-w-xl w-full bg-white rounded-3xl shadow-xl p-8 text-center border-4 border-sky-300">
+          <div className="text-6xl mb-4">🏭🐾</div>
+          <h1 className="text-4xl md:text-5xl font-extrabold text-sky-700 mb-6 leading-tight">Zvířecí třídírna</h1>
+          <p className="text-xl mb-4 text-gray-700 font-medium">
+            Pomoz zvířecí třídírně! Každé zvíře patří do své skupiny.
+          </p>
+          <p className="text-lg mb-8 text-gray-600 bg-sky-50 p-4 rounded-xl">
+            Přetáhni kartu do správného boxu (nebo jen klepni na box).
+          </p>
+          
+          <button 
+            onClick={startGame}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold text-2xl py-4 px-12 rounded-full shadow-lg transform transition hover:scale-105 active:scale-95"
+          >
+            START
+          </button>
+          
+          <div className="mt-12 pt-6 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-end">
+            <span className="italic">Mgr. Helena Gřivová</span>
+            <details className="text-left max-w-xs bg-gray-50 p-2 rounded cursor-pointer group">
+              <summary className="font-semibold text-sky-600 outline-none">Poznámka pro učitele</summary>
+              <p className="mt-2 text-xs text-gray-600 leading-relaxed group-open:animate-fade-in">
+                Rychlý a bezpečný trénink tříd obratlovců. Vhodné pro samostatnou práci: krátká kola, jednoduchá volba, nápověda až po 2. pokusu. 30 živočichů bez záludností.
+              </p>
+            </details>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'game') {
+    const currentCard = shuffledRounds[currentRound][cardIndex];
+    const showHints = failedAttempts > 0;
+
+    return (
+      <div className="min-h-screen bg-sky-50 flex flex-col font-sans select-none overflow-hidden">
+        <style>{globalStyles}</style>
+        
+        {/* HEADER */}
+        <div className="bg-white shadow-sm p-4 flex flex-col md:flex-row justify-between items-center gap-4 z-10">
+          <div className="text-xl font-bold text-gray-700">
+            Kolo {currentRound + 1} z {roundsData.length}
+          </div>
+          
+          {/* Progress bar */}
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-gray-600 mr-2">Karta {cardIndex + 1}/6</span>
+            <div className="flex gap-1">
+              {[0, 1, 2, 3, 4, 5].map(i => (
+                <div key={i} className={`w-8 h-4 rounded-sm transition-colors duration-500 ${i < cardIndex ? 'bg-green-500' : 'bg-gray-200'}`} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* FEEDBACK AREA */}
+        <div className="h-16 flex items-center justify-center">
+          {feedback && (
+            <div className={`text-xl font-bold px-6 py-2 rounded-full shadow-sm ${failedAttempts > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'} slide-anim`}>
+              {feedback}
+            </div>
+          )}
+        </div>
+
+        {/* HERNÍ PLOCHA (Pás a karta) */}
+        <div className="flex-grow flex flex-col items-center justify-center relative w-full">
+          {/* Třídící pás (pozadí) */}
+          <div className="absolute top-1/2 left-0 w-full h-32 conveyor-belt -translate-y-1/2 opacity-20"></div>
+
+          {/* KARTA */}
+          <div 
+            draggable={!isSuccessAnim}
+            onDragStart={handleDragStart}
+            className={`
+              relative z-20 bg-white border-4 border-gray-800 rounded-2xl p-6 md:p-10 shadow-2xl flex flex-col items-center justify-center
+              w-64 h-72 md:w-80 md:h-80 cursor-grab active:cursor-grabbing transition-transform
+              ${isErrorShake ? 'shake-anim border-red-500' : ''}
+              ${isSuccessAnim ? 'drop-anim' : 'slide-anim'}
+            `}
+          >
+            <div className="text-8xl md:text-9xl mb-4 pointer-events-none">
+              {emojiMap[currentCard.name] || '🐾'}
+            </div>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-800 capitalize pointer-events-none">
+              {currentCard.name}
+            </h2>
+            
+            {/* Ozdobný kolíček/štítek na kartě */}
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-3 bg-gray-300 rounded-full opacity-50"></div>
+          </div>
+        </div>
+
+        {/* BOXY */}
+        <div className="bg-gray-100 p-2 md:p-6 pb-8 border-t-4 border-gray-300">
+          <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+            {classesConfig.map((cls) => (
+              <div 
+                key={cls.id}
+                onClick={() => handleClassify(cls.id)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, cls.id)}
+                className={`
+                  ${cls.color} ${cls.hover} rounded-xl shadow-md cursor-pointer transition-all transform hover:-translate-y-2 flex flex-col items-center justify-center p-3 md:p-6 relative text-white border-b-4 border-black border-opacity-20
+                  ${classesConfig.length % 2 !== 0 && cls.id === classesConfig[classesConfig.length-1].id ? 'col-span-2 md:col-span-1' : ''}
+                `}
+                style={{ minHeight: '120px' }}
+              >
+                <div className="text-4xl md:text-5xl mb-2 drop-shadow-md">{cls.icon}</div>
+                <div className="font-bold text-sm md:text-base tracking-wider text-center break-words w-full">{cls.name}</div>
+                
+                {/* Nápověda po 1. chybě */}
+                {showHints && (
+                  <div className="absolute top-2 right-2 bg-white text-gray-800 text-xs font-bold px-2 py-1 rounded-full shadow-sm animate-pulse">
+                    {cls.hint}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'round_eval') {
+    // Analýza chyb v daném kole
+    const allTypes = [...new Set(shuffledRounds[currentRound].map(c => c.type))];
+    const perfectTypes = allTypes.filter(t => !roundMistakes[t]);
+    const practiceTypes = Object.keys(roundMistakes);
+
+    const formatTypes = (types) => {
+      if (types.length === 0) return "---";
+      return types.map(t => classesConfig.find(c => c.id === t)?.name.toLowerCase()).join(', ');
+    };
+
+    return (
+      <div className="min-h-screen bg-sky-100 flex items-center justify-center p-4 font-sans">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center border-4 border-sky-300 relative overflow-hidden">
+          {/* Zábavné razítko */}
+          <div className="absolute -top-6 -right-6 bg-red-500 text-white font-black text-2xl py-2 px-12 rotate-45 transform origin-bottom-right shadow-lg border-2 border-white opacity-90">
+            HOTOVO!
+          </div>
+
+          <h2 className="text-3xl font-extrabold text-sky-700 mb-6">Třídírna je uklizená!</h2>
+          
+          <div className="bg-sky-50 rounded-2xl p-6 mb-6">
+            <div className="text-5xl font-black text-sky-600 mb-2">
+              {roundScore} / 6
+            </div>
+            <p className="text-gray-500 font-bold uppercase tracking-wider text-sm mb-6">Správně napoprvé</p>
+            
+            <div className="text-left space-y-4 text-sm md:text-base">
+              <div>
+                <span className="text-green-600 font-bold flex items-center gap-2">
+                  <span>⭐</span> Nejlépe ti šly:
+                </span>
+                <span className="block pl-6 text-gray-700 font-medium capitalize mt-1">
+                  {perfectTypes.length > 0 ? formatTypes(perfectTypes) : "Všechny potřebují trochu cviku."}
+                </span>
+              </div>
+              
+              <div>
+                <span className="text-orange-500 font-bold flex items-center gap-2">
+                  <span>💪</span> Ještě trénujeme:
+                </span>
+                <span className="block pl-6 text-gray-700 font-medium capitalize mt-1">
+                  {practiceTypes.length > 0 ? formatTypes(practiceTypes) : "Nic! Všechno šlo naprosto dokonale!"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-gray-600 italic mb-8">
+            Každé kolo tě posune. Díky za pomoc!
+          </p>
+
+          <button 
+            onClick={nextRound}
+            className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-xl py-4 rounded-xl shadow-md transition transform hover:-translate-y-1"
+          >
+            {currentRound + 1 >= roundsData.length ? 'Konec hry' : 'Další kolo'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'final_eval') {
+    return (
+      <div className="min-h-screen bg-sky-100 flex items-center justify-center p-4 font-sans">
+        <div className="max-w-2xl w-full bg-white rounded-3xl shadow-xl p-8 text-center border-4 border-sky-300">
+          <div className="text-6xl mb-4">🏆</div>
+          <h2 className="text-4xl font-extrabold text-sky-700 mb-2">Skvělá práce!</h2>
+          <p className="text-xl text-gray-600 mb-8">Prošli jsme všech 30 zvířat.</p>
+          
+          <div className="bg-sky-50 p-6 rounded-2xl mb-8">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Jak se mi to dařilo? (Sebehodnocení)</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+              <button className="flex flex-col bg-white border-2 border-green-200 hover:border-green-500 p-4 rounded-xl cursor-pointer transition group">
+                <span className="text-xl font-black text-green-600 mb-1 group-hover:scale-110 transition-transform origin-left">Ú – Úplně</span>
+                <span className="text-gray-600 text-sm">Umím to sám/sama a cítím se jistě.</span>
+              </button>
+              
+              <button className="flex flex-col bg-white border-2 border-yellow-200 hover:border-yellow-500 p-4 rounded-xl cursor-pointer transition group">
+                <span className="text-xl font-black text-yellow-500 mb-1 group-hover:scale-110 transition-transform origin-left">T – Téměř</span>
+                <span className="text-gray-600 text-sm">Většinou to zvládnu, občas potřebuji pomoc.</span>
+              </button>
+              
+              <button className="flex flex-col bg-white border-2 border-orange-200 hover:border-orange-500 p-4 rounded-xl cursor-pointer transition group">
+                <span className="text-xl font-black text-orange-500 mb-1 group-hover:scale-110 transition-transform origin-left">Č – Částečně</span>
+                <span className="text-gray-600 text-sm">Něco už umím, ale často chybuji.</span>
+              </button>
+              
+              <button className="flex flex-col bg-white border-2 border-red-200 hover:border-red-500 p-4 rounded-xl cursor-pointer transition group">
+                <span className="text-xl font-black text-red-500 mb-1 group-hover:scale-110 transition-transform origin-left">J – Ještě ne</span>
+                <span className="text-gray-600 text-sm">Zatím tomu nerozumím, ale učím se.</span>
+              </button>
+            </div>
+            <p className="mt-6 text-sm text-gray-500 italic text-center">Vyber si hodnocení, které ti nejvíce sedí.</p>
+          </div>
+
+          <button 
+            onClick={() => setScreen('start')}
+            className="bg-gray-800 hover:bg-gray-900 text-white font-bold text-lg py-3 px-8 rounded-full shadow-md transition transform hover:scale-105"
+          >
+            Hrát znovu
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
