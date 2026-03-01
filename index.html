@@ -1,91 +1,480 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zvířecí třídírna</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zvířecí třídírna</title>
 
-<script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 
-<style>
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  25% { transform: translateX(-10px); }
-  75% { transform: translateX(10px); }
-}
-.shake { animation: shake 0.3s; }
-</style>
+  <style>
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px) rotate(-2deg); }
+      75% { transform: translateX(10px) rotate(2deg); }
+    }
+    @keyframes dropIn {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(50px) scale(0.5); opacity: 0; }
+    }
+    @keyframes slideIn {
+      0% { transform: translateX(90px); opacity: 0; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+    .shake-anim { animation: shake 0.4s ease-in-out; }
+    .drop-anim { animation: dropIn 0.8s forwards; }
+    .slide-anim { animation: slideIn 0.5s ease-out; }
+    .conveyor-belt {
+      background: repeating-linear-gradient(90deg, #4b5563, #4b5563 20px, #374151 20px, #374151 40px);
+      border-bottom: 8px solid #1f2937;
+    }
+  </style>
 </head>
 
-<body class="bg-sky-100 min-h-screen flex flex-col items-center justify-center p-6 font-sans">
+<body class="bg-sky-100 min-h-screen font-sans text-gray-800">
 
-<div class="bg-white p-8 rounded-3xl shadow-xl max-w-xl w-full text-center">
-  <h1 class="text-4xl font-bold text-sky-700 mb-6">🐾 Zvířecí třídírna</h1>
+  <!-- START -->
+  <section id="screenStart" class="min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-xl w-full bg-white rounded-3xl shadow-xl p-8 text-center border-4 border-sky-300">
+      <div class="text-6xl mb-4">🏭🐾</div>
+      <h1 class="text-4xl md:text-5xl font-extrabold text-sky-700 mb-6 leading-tight">Zvířecí třídírna</h1>
+      <p class="text-xl mb-4 text-gray-700 font-medium">Pomoz zvířecí třídírně! Každé zvíře patří do své skupiny.</p>
+      <p class="text-lg mb-8 text-gray-600 bg-sky-50 p-4 rounded-xl">
+        Klikni na správný box (nebo přetáhni kartu, když to tvůj prohlížeč dovolí).
+        Po chybě se objeví nápovědy.
+      </p>
 
-  <div id="card" class="bg-white border-4 border-gray-800 rounded-2xl p-8 mb-6">
-    <div id="emoji" class="text-7xl mb-4">🐟</div>
-    <div id="animalName" class="text-3xl font-bold">kapr</div>
-  </div>
+      <button id="btnStart"
+        class="bg-green-500 hover:bg-green-600 text-white font-bold text-2xl py-4 px-12 rounded-full shadow-lg transform transition hover:scale-105 active:scale-95">
+        START
+      </button>
 
-  <div id="feedback" class="h-8 mb-4 font-bold"></div>
+      <div class="mt-12 pt-6 border-t border-gray-200 text-sm text-gray-500 flex justify-between items-end">
+        <span class="italic">Mgr. Helena Gřivová</span>
+        <details class="text-left max-w-xs bg-gray-50 p-2 rounded cursor-pointer">
+          <summary class="font-semibold text-sky-600 outline-none">Poznámka pro učitele</summary>
+          <p class="mt-2 text-xs text-gray-600 leading-relaxed">
+            Rychlý a bezpečný trénink tříd obratlovců. Vhodné pro samostatnou práci:
+            krátká kola, jednoduchá volba, nápověda po chybě. 30 živočichů bez záludností.
+          </p>
+        </details>
+      </div>
+    </div>
+  </section>
 
-  <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-    <button onclick="check('ryby')" class="bg-blue-400 text-white p-3 rounded-xl">RYBY</button>
-    <button onclick="check('obojzivelnici')" class="bg-green-500 text-white p-3 rounded-xl">OBOJŽIVELNÍCI</button>
-    <button onclick="check('plazi')" class="bg-orange-400 text-white p-3 rounded-xl">PLAZI</button>
-    <button onclick="check('ptaci')" class="bg-yellow-400 text-white p-3 rounded-xl">PTÁCI</button>
-    <button onclick="check('savci')" class="bg-purple-400 text-white p-3 rounded-xl col-span-2 md:col-span-1">SAVCI</button>
-  </div>
-</div>
+  <!-- GAME -->
+  <section id="screenGame" class="hidden min-h-screen bg-sky-50 flex flex-col select-none overflow-hidden">
+    <div class="bg-white shadow-sm p-4 flex flex-col md:flex-row justify-between items-center gap-4 z-10">
+      <div class="text-xl font-bold text-gray-700">
+        Kolo <span id="roundPos">1</span> z <span id="roundTotal">5</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="font-semibold text-gray-600 mr-2">Karta <span id="cardPos">1</span>/6</span>
+        <div id="progress" class="flex gap-1"></div>
+      </div>
+    </div>
+
+    <div class="h-16 flex items-center justify-center">
+      <div id="feedback" class="hidden text-xl font-bold px-6 py-2 rounded-full shadow-sm slide-anim"></div>
+    </div>
+
+    <div class="flex-grow flex flex-col items-center justify-center relative w-full">
+      <div class="absolute top-1/2 left-0 w-full h-32 conveyor-belt -translate-y-1/2 opacity-20"></div>
+
+      <div id="card"
+        draggable="true"
+        class="relative z-20 bg-white border-4 border-gray-800 rounded-2xl p-6 md:p-10 shadow-2xl flex flex-col items-center justify-center
+               w-64 h-72 md:w-80 md:h-80 cursor-grab active:cursor-grabbing transition-transform slide-anim">
+        <div id="emoji" class="text-8xl md:text-9xl mb-4 pointer-events-none">🐾</div>
+        <h2 id="animalName" class="text-3xl md:text-4xl font-extrabold text-gray-800 capitalize pointer-events-none">---</h2>
+        <div class="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-3 bg-gray-300 rounded-full opacity-50"></div>
+      </div>
+    </div>
+
+    <div class="bg-gray-100 p-2 md:p-6 pb-8 border-t-4 border-gray-300">
+      <div id="boxes" class="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4"></div>
+    </div>
+  </section>
+
+  <!-- ROUND EVAL -->
+  <section id="screenRoundEval" class="hidden min-h-screen bg-sky-100 flex items-center justify-center p-4">
+    <div class="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center border-4 border-sky-300 relative overflow-hidden">
+      <div class="absolute -top-6 -right-6 bg-red-500 text-white font-black text-2xl py-2 px-12 rotate-45 transform origin-bottom-right shadow-lg border-2 border-white opacity-90">
+        HOTOVO!
+      </div>
+
+      <h2 class="text-3xl font-extrabold text-sky-700 mb-6">Třídírna je uklizená!</h2>
+
+      <div class="bg-sky-50 rounded-2xl p-6 mb-6">
+        <div class="text-5xl font-black text-sky-600 mb-2">
+          <span id="roundScore">0</span> / 6
+        </div>
+        <p class="text-gray-500 font-bold uppercase tracking-wider text-sm mb-6">Správně napoprvé</p>
+
+        <div class="text-left space-y-4 text-sm md:text-base">
+          <div>
+            <span class="text-green-600 font-bold flex items-center gap-2"><span>⭐</span> Nejlépe ti šly:</span>
+            <span id="perfectTypes" class="block pl-6 text-gray-700 font-medium capitalize mt-1">---</span>
+          </div>
+
+          <div>
+            <span class="text-orange-500 font-bold flex items-center gap-2"><span>💪</span> Ještě trénujeme:</span>
+            <span id="practiceTypes" class="block pl-6 text-gray-700 font-medium capitalize mt-1">---</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-gray-600 italic mb-8">Každé kolo tě posune. Díky za pomoc!</p>
+
+      <button id="btnNextRound"
+        class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold text-xl py-4 rounded-xl shadow-md transition transform hover:-translate-y-1">
+        Další kolo
+      </button>
+    </div>
+  </section>
+
+  <!-- FINAL -->
+  <section id="screenFinal" class="hidden min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-2xl w-full bg-white rounded-3xl shadow-xl p-8 text-center border-4 border-sky-300">
+      <div class="text-6xl mb-4">🏆</div>
+      <h2 class="text-4xl font-extrabold text-sky-700 mb-2">Skvělá práce!</h2>
+      <p class="text-xl text-gray-600 mb-8">Prošli jsme všech 30 zvířat.</p>
+
+      <div class="bg-sky-50 p-6 rounded-2xl mb-8">
+        <h3 class="text-2xl font-bold text-gray-800 mb-6">Jak se mi to dařilo? (Sebehodnocení)</h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+          <button class="flex flex-col bg-white border-2 border-green-200 hover:border-green-500 p-4 rounded-xl cursor-pointer transition group">
+            <span class="text-xl font-black text-green-600 mb-1 group-hover:scale-110 transition-transform origin-left">Ú – Úplně</span>
+            <span class="text-gray-600 text-sm">Umím to sám/sama a cítím se jistě.</span>
+          </button>
+
+          <button class="flex flex-col bg-white border-2 border-yellow-200 hover:border-yellow-500 p-4 rounded-xl cursor-pointer transition group">
+            <span class="text-xl font-black text-yellow-500 mb-1 group-hover:scale-110 transition-transform origin-left">T – Téměř</span>
+            <span class="text-gray-600 text-sm">Většinou to zvládnu, občas potřebuji pomoc.</span>
+          </button>
+
+          <button class="flex flex-col bg-white border-2 border-orange-200 hover:border-orange-500 p-4 rounded-xl cursor-pointer transition group">
+            <span class="text-xl font-black text-orange-500 mb-1 group-hover:scale-110 transition-transform origin-left">Č – Částečně</span>
+            <span class="text-gray-600 text-sm">Něco už umím, ale často chybuji.</span>
+          </button>
+
+          <button class="flex flex-col bg-white border-2 border-red-200 hover:border-red-500 p-4 rounded-xl cursor-pointer transition group">
+            <span class="text-xl font-black text-red-500 mb-1 group-hover:scale-110 transition-transform origin-left">J – Ještě ne</span>
+            <span class="text-gray-600 text-sm">Zatím tomu nerozumím, ale učím se.</span>
+          </button>
+        </div>
+
+        <p class="mt-6 text-sm text-gray-500 italic text-center">Vyber si hodnocení, které ti nejvíce sedí.</p>
+      </div>
+
+      <button id="btnAgain"
+        class="bg-gray-800 hover:bg-gray-900 text-white font-bold text-lg py-3 px-8 rounded-full shadow-md transition transform hover:scale-105">
+        Hrát znovu
+      </button>
+    </div>
+  </section>
 
 <script>
-const animals = [
-  {name:"kapr", type:"ryby", emoji:"🐟"},
-  {name:"skokan", type:"obojzivelnici", emoji:"🐸"},
-  {name:"ještěrka", type:"plazi", emoji:"🦎"},
-  {name:"kos", type:"ptaci", emoji:"🐦"},
-  {name:"pes", type:"savci", emoji:"🐕"},
-  {name:"želva", type:"plazi", emoji:"🐢"},
-  {name:"kachna", type:"ptaci", emoji:"🦆"},
-  {name:"ježek", type:"savci", emoji:"🦔"}
-];
+  // --- KONFIG ---
+  const classesConfig = [
+    { id: 'ryby',          name: 'RYBY',          color: 'bg-blue-400',   hover: 'hover:bg-blue-500',   icon: '🐟', hint: 'žábry' },
+    { id: 'obojzivelnici', name: 'OBOJŽIVELNÍCI', color: 'bg-green-500',  hover: 'hover:bg-green-600',  icon: '🐸', hint: 'voda i souš' },
+    { id: 'plazi',         name: 'PLAZI',         color: 'bg-orange-400', hover: 'hover:bg-orange-500', icon: '🦎', hint: 'šupiny' },
+    { id: 'ptaci',         name: 'PTÁCI',         color: 'bg-yellow-400', hover: 'hover:bg-yellow-500', icon: '🐦', hint: 'peří' },
+    { id: 'savci',         name: 'SAVCI',         color: 'bg-purple-400', hover: 'hover:bg-purple-500', icon: '🐻', hint: 'srst' },
+  ];
 
-let index = 0;
+  const emojiMap = {
+    'kapr': '🐟', 'skokan': '🐸', 'ještěrka': '🦎', 'kos': '🐦', 'pes': '🐕', 'štika': '🐟',
+    'sumec': '🐟', 'ropucha': '🐸', 'slepýš': '🐍', 'čáp': '🦩', 'kočka': '🐈', 'okoun': '🐟',
+    'pstruh': '🐟', 'mlok': '🦎', 'želva': '🐢', 'sova': '🦉', 'králík': '🐇', 'lín': '🐟',
+    'čolek': '🦎', 'užovka': '🐍', 'kachna': '🦆', 'ježek': '🦔',
+    'rosnička': '🐸', 'krokodýl': '🐊', 'sýkora': '🐦', 'liška': '🦊', 'kuňka obecná': '🐸',
+    'vrabec': '🐦', 'kůň': '🐎', 'leguán': '🦎'
+  };
 
-function showAnimal() {
-  document.getElementById("animalName").textContent = animals[index].name;
-  document.getElementById("emoji").textContent = animals[index].emoji;
-  document.getElementById("feedback").textContent = "";
-}
+  // 5 kol × 6 = 30 zvířat (stejně jako původní verze)
+  const roundsData = [
+    [ {name: 'kapr', type: 'ryby'}, {name: 'skokan', type: 'obojzivelnici'}, {name: 'ještěrka', type: 'plazi'}, {name: 'kos', type: 'ptaci'}, {name: 'pes', type: 'savci'}, {name: 'štika', type: 'ryby'} ],
+    [ {name: 'sumec', type: 'ryby'}, {name: 'ropucha', type: 'obojzivelnici'}, {name: 'slepýš', type: 'plazi'}, {name: 'čáp', type: 'ptaci'}, {name: 'kočka', type: 'savci'}, {name: 'okoun', type: 'ryby'} ],
+    [ {name: 'pstruh', type: 'ryby'}, {name: 'mlok', type: 'obojzivelnici'}, {name: 'želva', type: 'plazi'}, {name: 'sova', type: 'ptaci'}, {name: 'králík', type: 'savci'}, {name: 'lín', type: 'ryby'} ],
+    [ {name: 'leguán', type: 'plazi'}, {name: 'čolek', type: 'obojzivelnici'}, {name: 'užovka', type: 'plazi'}, {name: 'kachna', type: 'ptaci'}, {name: 'ježek', type: 'savci'}, {name: 'kůň', type: 'savci'} ],
+    [ {name: 'vrabec', type: 'ptaci'}, {name: 'rosnička', type: 'obojzivelnici'}, {name: 'krokodýl', type: 'plazi'}, {name: 'sýkora', type: 'ptaci'}, {name: 'liška', type: 'savci'}, {name: 'kuňka obecná', type: 'obojzivelnici'} ]
+  ];
 
-function check(selected) {
-  const correct = animals[index].type;
-  const feedback = document.getElementById("feedback");
-  const card = document.getElementById("card");
+  const praises = ["Super!", "Skvělé třídění!", "Jde ti to!"];
 
-  if (selected === correct) {
-    feedback.textContent = "✅ Správně!";
-    feedback.className = "text-green-600 font-bold";
-    index++;
-
-    if (index >= animals.length) {
-      setTimeout(() => {
-        alert("🎉 Hotovo! Prošli jste všechna zvířata!");
-        index = 0;
-        showAnimal();
-      }, 500);
-    } else {
-      setTimeout(showAnimal, 500);
+  // --- HELPERS ---
+  function shuffleArray(array) {
+    const a = [...array];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
     }
-  } else {
-    feedback.textContent = "❌ Zkus to znovu.";
-    feedback.className = "text-red-600 font-bold";
-    card.classList.add("shake");
-    setTimeout(() => card.classList.remove("shake"), 300);
+    return a;
   }
-}
 
-showAnimal();
+  function $(id){ return document.getElementById(id); }
+
+  // --- SCREENS ---
+  const screenStart = $("screenStart");
+  const screenGame = $("screenGame");
+  const screenRoundEval = $("screenRoundEval");
+  const screenFinal = $("screenFinal");
+
+  function showScreen(which) {
+    screenStart.classList.add("hidden");
+    screenGame.classList.add("hidden");
+    screenRoundEval.classList.add("hidden");
+    screenFinal.classList.add("hidden");
+
+    if (which === "start") screenStart.classList.remove("hidden");
+    if (which === "game") screenGame.classList.remove("hidden");
+    if (which === "round_eval") screenRoundEval.classList.remove("hidden");
+    if (which === "final") screenFinal.classList.remove("hidden");
+  }
+
+  // --- STATE ---
+  let shuffledRounds = roundsData.map(r => [...r]);
+  let currentRound = 0;
+  let cardIndex = 0;
+
+  let failedAttempts = 0;
+  let roundMistakes = {}; // { typeId: count }
+  let roundScore = 0;    // správně napoprvé
+
+  // --- UI refs ---
+  const roundPosEl = $("roundPos");
+  const roundTotalEl = $("roundTotal");
+  const cardPosEl = $("cardPos");
+  const progressEl = $("progress");
+
+  const feedbackEl = $("feedback");
+  const cardEl = $("card");
+  const emojiEl = $("emoji");
+  const animalNameEl = $("animalName");
+
+  const boxesEl = $("boxes");
+
+  // --- BUILD BOXES (jednou) ---
+  function buildBoxes() {
+    boxesEl.innerHTML = "";
+    classesConfig.forEach((cls, idx) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.dataset.classId = cls.id;
+
+      const spanClass = (classesConfig.length % 2 !== 0 && idx === classesConfig.length - 1)
+        ? "col-span-2 md:col-span-1"
+        : "";
+
+      btn.className =
+        `${cls.color} ${cls.hover} ${spanClass} rounded-xl shadow-md cursor-pointer transition-all transform hover:-translate-y-2 ` +
+        `flex flex-col items-center justify-center p-3 md:p-6 relative text-white border-b-4 border-black/20 min-h-[120px]`;
+
+      btn.innerHTML = `
+        <div class="text-4xl md:text-5xl mb-2 drop-shadow-md">${cls.icon}</div>
+        <div class="font-bold text-sm md:text-base tracking-wider text-center break-words w-full">${cls.name}</div>
+        <div class="hint hidden absolute top-2 right-2 bg-white text-gray-800 text-xs font-bold px-2 py-1 rounded-full shadow-sm animate-pulse">${cls.hint}</div>
+      `;
+
+      btn.addEventListener("click", () => handleClassify(cls.id));
+
+      // Drag over / drop
+      btn.addEventListener("dragover", (e) => e.preventDefault());
+      btn.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const t = e.dataTransfer.getData("text/plain");
+        if (t === "animalCard") handleClassify(cls.id);
+      });
+
+      boxesEl.appendChild(btn);
+    });
+  }
+
+  // --- PROGRESS ---
+  function buildProgress() {
+    progressEl.innerHTML = "";
+    for (let i = 0; i < 6; i++) {
+      const d = document.createElement("div");
+      d.className = "w-8 h-4 rounded-sm transition-colors duration-500 bg-gray-200";
+      d.dataset.i = String(i);
+      progressEl.appendChild(d);
+    }
+  }
+
+  function updateProgress() {
+    [...progressEl.children].forEach((el, i) => {
+      el.className = "w-8 h-4 rounded-sm transition-colors duration-500 " + (i < cardIndex ? "bg-green-500" : "bg-gray-200");
+    });
+  }
+
+  // --- HINTS ---
+  function setHintsVisible(visible) {
+    document.querySelectorAll(".hint").forEach(h => {
+      if (visible) h.classList.remove("hidden");
+      else h.classList.add("hidden");
+    });
+  }
+
+  // --- FEEDBACK ---
+  function setFeedback(text, isError) {
+    feedbackEl.textContent = text;
+    feedbackEl.className = "text-xl font-bold px-6 py-2 rounded-full shadow-sm slide-anim " +
+      (isError ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700");
+    feedbackEl.classList.remove("hidden");
+  }
+  function clearFeedback() {
+    feedbackEl.textContent = "";
+    feedbackEl.classList.add("hidden");
+  }
+
+  // --- ROUND RESET ---
+  function resetRoundStats() {
+    failedAttempts = 0;
+    roundMistakes = {};
+    roundScore = 0;
+    clearFeedback();
+    setHintsVisible(false);
+  }
+
+  // --- RENDER CARD ---
+  function render() {
+    roundPosEl.textContent = String(currentRound + 1);
+    roundTotalEl.textContent = String(roundsData.length);
+    cardPosEl.textContent = String(cardIndex + 1);
+
+    updateProgress();
+
+    const card = shuffledRounds[currentRound][cardIndex];
+    emojiEl.textContent = emojiMap[card.name] || "🐾";
+    animalNameEl.textContent = card.name;
+
+    // Animace příjezdu
+    cardEl.classList.remove("drop-anim");
+    cardEl.classList.add("slide-anim");
+    setTimeout(() => cardEl.classList.remove("slide-anim"), 520);
+  }
+
+  // --- GAME FLOW ---
+  function startGame() {
+    shuffledRounds = roundsData.map(round => shuffleArray(round));
+    currentRound = 0;
+    cardIndex = 0;
+    buildProgress();
+    resetRoundStats();
+    showScreen("game");
+    render();
+  }
+
+  function nextRound() {
+    if (currentRound + 1 >= shuffledRounds.length) {
+      showScreen("final");
+      return;
+    }
+    currentRound++;
+    cardIndex = 0;
+    buildProgress();
+    resetRoundStats();
+    showScreen("game");
+    render();
+  }
+
+  function showRoundEval() {
+    const roundCards = shuffledRounds[currentRound];
+    const allTypes = [...new Set(roundCards.map(c => c.type))];
+    const perfectTypes = allTypes.filter(t => !roundMistakes[t]);
+    const practiceTypes = Object.keys(roundMistakes);
+
+    function formatTypes(types) {
+      if (!types.length) return "---";
+      return types.map(t => {
+        const cfg = classesConfig.find(c => c.id === t);
+        return cfg ? cfg.name.toLowerCase() : t;
+      }).join(", ");
+    }
+
+    $("roundScore").textContent = String(roundScore);
+    $("perfectTypes").textContent = perfectTypes.length ? formatTypes(perfectTypes) : "Všechny potřebují trochu cviku.";
+    $("practiceTypes").textContent = practiceTypes.length ? formatTypes(practiceTypes) : "Nic! Všechno šlo naprosto dokonale!";
+
+    const btn = $("btnNextRound");
+    btn.textContent = (currentRound + 1 >= shuffledRounds.length) ? "Konec hry" : "Další kolo";
+
+    showScreen("round_eval");
+  }
+
+  // --- CLASSIFY ---
+  let lock = false; // blokace klikání během animace
+
+  function handleClassify(selectedClassId) {
+    if (lock) return;
+
+    const currentCard = shuffledRounds[currentRound][cardIndex];
+
+    if (selectedClassId === currentCard.type) {
+      // správně
+      if (failedAttempts > 0) {
+        setFeedback("Jo! Teď to sedí.", false);
+      } else {
+        setFeedback(praises[Math.floor(Math.random() * praises.length)], false);
+        roundScore++;
+      }
+
+      lock = true;
+      cardEl.classList.remove("shake-anim");
+      cardEl.classList.add("drop-anim");
+
+      setTimeout(() => {
+        lock = false;
+        cardEl.classList.remove("drop-anim");
+        clearFeedback();
+        failedAttempts = 0;
+        setHintsVisible(false);
+
+        if (cardIndex + 1 < shuffledRounds[currentRound].length) {
+          cardIndex++;
+          render();
+        } else {
+          showRoundEval();
+        }
+      }, 900);
+
+    } else {
+      // chyba
+      failedAttempts++;
+      setFeedback("Zatím ne. Zkus se podívat na znak.", true);
+      setHintsVisible(true);
+
+      roundMistakes[currentCard.type] = (roundMistakes[currentCard.type] || 0) + 1;
+
+      cardEl.classList.add("shake-anim", "border-red-500");
+      setTimeout(() => {
+        cardEl.classList.remove("shake-anim", "border-red-500");
+      }, 420);
+    }
+  }
+
+  // --- DRAG START ---
+  cardEl.addEventListener("dragstart", (e) => {
+    if (lock) {
+      e.preventDefault();
+      return;
+    }
+    e.dataTransfer.setData("text/plain", "animalCard");
+  });
+
+  // --- BUTTONS ---
+  $("btnStart").addEventListener("click", startGame);
+  $("btnNextRound").addEventListener("click", nextRound);
+  $("btnAgain").addEventListener("click", () => showScreen("start"));
+
+  // init
+  buildBoxes();
+  buildProgress();
+  showScreen("start");
 </script>
 
 </body>
